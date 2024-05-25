@@ -4,6 +4,8 @@
  * MIT License
  */
 
+#include <math.h>
+#include <stdlib.h>
 #include "sparkline.h"
 #include "pico-ssd1306/ssd1306.h"
 
@@ -40,6 +42,44 @@ uint8_t sparkline_add_datapoint(sparkline_t *sparkline, int16_t datapoint) {
   return sparkline->current_datapoint;
 }
 
+inline static void swap(uint8_t *a, uint8_t *b) {
+  *a ^= *b;
+  *b ^= *a;
+  *a ^= *b;
+}
+
+void sparkline_draw_line(ssd1306_t *display, uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2) {
+  // Always draw from x1 to x2
+  if (x1 > x2) {
+    swap(&x1, &x2);
+    swap(&y1, &y2);
+  }
+  int16_t delta_x = x2 - x1;
+  int16_t delta_y = y2 - y1;
+  uint8_t i;
+  bool is_steep = delta_x < abs(delta_y);
+  float slope = is_steep ? (float) delta_x / (float) delta_y : (float) delta_y / (float) delta_x;
+  float k;
+
+  // If line is steep, trace pixels along Y axis, otherwise X axis
+  if (is_steep) {
+    // Always draw from y1 to y2
+    if (y1 > y2) {
+      swap(&x1, &x2);
+      swap(&y1, &y2);
+    }
+    for (i = y1; i < y2; i++) {
+      k = slope * (i - y1) + x1;
+      ssd1306_draw_pixel(display, k, i);
+    }
+  } else {
+    for (i = x1; i <= x2; i++) {
+      k = slope * (i - x1) + y1;
+      ssd1306_draw_pixel(display, i, k);
+    }
+  }
+}
+
 /**
  * Draw configured and populated sparkline on display
  */
@@ -62,7 +102,7 @@ void sparkline_draw(ssd1306_t *display, sparkline_t *sparkline) {
       x -= sparkline->stepsize;
       // Prevent drawing past left edge
       x = x < 0 ? 0 : x;
-      ssd1306_draw_line(
+      sparkline_draw_line(
         display,
         x + sparkline->x,
         y + sparkline->y,
