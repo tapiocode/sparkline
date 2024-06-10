@@ -24,7 +24,7 @@ void sparkline_clear(ssd1306_t *display, sparkline_t *sparkline) {
 /**
  * Adds datapoint to array, returns index of new datapoint or -1 if the array is full
  */
-uint8_t sparkline_add_datapoint(sparkline_t *sparkline, int16_t datapoint) {
+int32_t sparkline_add_datapoint(sparkline_t *sparkline, int32_t datapoint) {
   if (sparkline->current_datapoint == SPARKLINE_MAX_POINTS ||
       sparkline->current_datapoint == sparkline->area_width) {
     return -1;
@@ -42,55 +42,60 @@ uint8_t sparkline_add_datapoint(sparkline_t *sparkline, int16_t datapoint) {
   return sparkline->current_datapoint;
 }
 
-inline static void swap(uint8_t *a, uint8_t *b) {
-  *a ^= *b;
-  *b ^= *a;
-  *a ^= *b;
-}
-
-void sparkline_draw_line(ssd1306_t *display, uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2) {
-  // Always draw from x1 to x2
-  if (x1 > x2) {
-    swap(&x1, &x2);
-    swap(&y1, &y2);
+void sparkline_draw_line(ssd1306_t *display, int32_t x1, int32_t y1, int32_t x2, int32_t y2) {
+  /**
+   * Implements Bresenham's line algorithm, see:
+   * https://en.wikipedia.org/wiki/Bresenham's_line_algorithm
+   */
+  int32_t D, dx, dy, step_x = 1, step_y = 1;
+  dx = x2 - x1;
+  dy = y2 - y1;
+  if (dx < 0) {
+      dx = -dx;
+      step_x = -step_x;
   }
-  int16_t delta_x = x2 - x1;
-  int16_t delta_y = y2 - y1;
-  uint8_t i;
-  bool is_steep = delta_x < abs(delta_y);
-  float slope = is_steep ? (float) delta_x / (float) delta_y : (float) delta_y / (float) delta_x;
-  float k;
 
-  // If line is steep, trace pixels along Y axis, otherwise X axis
-  if (is_steep) {
-    // Always draw from y1 to y2
-    if (y1 > y2) {
-      swap(&x1, &x2);
-      swap(&y1, &y2);
-    }
-    for (i = y1; i < y2; i++) {
-      k = slope * (i - y1) + x1;
-      ssd1306_draw_pixel(display, k, i);
-    }
+  if (dy < 0) {
+      dy = -dy;
+      step_y = -step_y;
+  }
+
+  ssd1306_draw_pixel(display, x1, y1);
+  if (dy < dx) {
+      D = dy * 2 - dx;
+      while (x1 != x2) {
+          x1 += step_x;
+          if (D >= 0) {
+              y1 += step_y;
+              D -= 2 * dx;
+          }
+          D += 2 * dy;
+          ssd1306_draw_pixel(display, x1, y1);
+      }
   } else {
-    for (i = x1; i <= x2; i++) {
-      k = slope * (i - x1) + y1;
-      ssd1306_draw_pixel(display, i, k);
-    }
+      D = dy - dx * 2;
+      while (y1 != y2) {
+          y1 += step_y;
+          if (D <= 0) {
+              x1 += step_x;
+              D += 2*dy;
+          }
+          D -= 2*dx;
+          ssd1306_draw_pixel(display, x1, y1);
+      }
   }
 }
-
 /**
  * Draw configured and populated sparkline on display
  */
 void sparkline_draw(ssd1306_t *display, sparkline_t *sparkline) {
-  uint8_t prev_y;
-  uint8_t prev_x = 0;
-  uint8_t x = sparkline->area_width;
-  uint8_t y;
-  int16_t range = sparkline->max - sparkline->min;
-  int16_t height;
-  for (uint8_t i = 0; i < sparkline->current_datapoint; i++) {
+  int32_t prev_y;
+  int32_t prev_x = 0;
+  int32_t x = sparkline->area_width;
+  int32_t y;
+  int32_t range = sparkline->max - sparkline->min;
+  int32_t height;
+  for (int32_t i = 0; i < sparkline->current_datapoint; i++) {
     height = sparkline->datapoints[i] - sparkline->min;
     // Get normalized height within range [0, area_height]
     y = sparkline->area_height - (height * sparkline->area_height) / range;
