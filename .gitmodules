@@ -1,3 +1,4 @@
 [submodule "pico-ssd1306"]
 	path = pico-ssd1306
-	url = https://github.com/daschr/pico-ssd1306
+	url = https://github.com/tapiocode/pico-ssd1306
+	branch = main

@@ -12,6 +12,7 @@
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
 #include "pico-ssd1306/ssd1306.h"
+#include "pico-ssd1306/lib/fonts/font6x8.h"
 #include "sparkline.h"
 
 static ssd1306_t display;
@@ -29,17 +30,17 @@ void init_display(uint8_t pin_sda, uint8_t pin_scl) {
   gpio_set_function(pin_scl, GPIO_FUNC_I2C);
   gpio_pull_up(pin_sda);
   gpio_pull_up(pin_scl);
-  ssd1306_init(&display, 128, 64, 0x3C, I2C_PORT);
+  ssd1306_init(&display, 128, 64, 0x3C, I2C_PORT, 0);
 }
 
 void draw_sparkline(char* label, int16_t values[], size_t len) {
   ssd1306_clear(&display);
 
   // Append texts
-  ssd1306_draw_string(&display, 0, 0, 1, "sparkline demo");
+  ssd1306_draw_str(&display, 0, 0, "sparkline demo", &font6x8_font);
   uint8_t label_y = sparkline.y + sparkline.area_height + 1;
-  ssd1306_clear_square(&display, 0, label_y, 128, 5);
-  ssd1306_draw_string(&display, 0, label_y, 1, label);
+  ssd1306_clear_rect(&display, 0, label_y, 128, 5);
+  ssd1306_draw_str(&display, 0, label_y, label, &font6x8_font);
 
   // Load up values
   sparkline_clear(&display, &sparkline);
